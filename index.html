@@ -1,52 +1,902 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>The Marginalia</title>
-  <style>
-    :root { --canvas: #F9F8F6; --ink: #1A1A1A; --accent: #8C8C8C; }
-    /* Cursor */
-    .cursor { width: 10px; height: 10px; background: var(--ink); border-radius: 50%; position: fixed; pointer-events: none; z-index: 9999; transition: transform 0.1s ease; }
-    /* Progress Bar */
-    .progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: var(--ink); width: 0%; z-index: 1000; }
-    
-    body { background: var(--canvas); color: var(--ink); font-family: 'Inter', sans-serif; cursor: none; }
-    
-    /* Layout */
-    .container { max-width: 720px; margin: 10vh auto; padding: 0 2rem; }
-    .fade-up { opacity: 0; transform: translateY(40px); transition: all 1s cubic-bezier(0.16, 1, 0.3, 1); }
-    .visible { opacity: 1; transform: translateY(0); }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title id="seo-title">the marginalia.</title>
+  <meta id="seo-desc" name="description" content="A digital journal of essays, classical literature, and fragments." />
+  <!-- Open Graph -->
+  <meta id="og-title" property="og:title" content="the marginalia." />
+  <meta id="og-desc" property="og:description" content="A digital journal of essays, classical literature, and fragments." />
+  <meta id="og-image" property="og:image" content="https://yourwebsite.com/default-cover.jpg" />
 
-    /* Typography */
-    h1 { font-family: 'Playfair Display', serif; font-size: 4rem; }
-    .editorial-content p:first-of-type::first-letter { font-family: 'Playfair Display', serif; float: left; font-size: 6rem; line-height: 0.8; padding-right: 0.2em; }
-    
-    /* Editor Styles */
-    .editor-wrapper { background: white; border: 1px solid #eaeaea; border-radius: 12px; padding: 2rem; box-shadow: 0 20px 40px rgba(0,0,0,0.05); }
-    .toolbar { position: sticky; top: 10px; background: #fff; padding: 10px; border-bottom: 1px solid #eee; display: flex; gap: 10px; z-index: 100; }
+  <!-- Fonts & Libraries -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+
+  <style>
+    /* ===== CSS VARIABLES (The Canvas) ===== */
+    :root {
+      --canvas: #F9F8F6;
+      --ink: #1A1A1A;
+      --accent: #8C8C8C;
+      --paper: #FFFFFF;
+      --border: #E8E5E0;
+      --teal: #2C6E6F;
+      --teal-light: #E8F3F2;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      background-color: var(--canvas);
+      color: var(--ink);
+      font-family: 'Inter', sans-serif;
+      line-height: 1.8;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 2rem; }
+
+    /* ===== TYPOGRAPHY ===== */
+    .serif { font-family: 'Playfair Display', serif; }
+    .dropcap::first-letter {
+      float: left;
+      font-size: 4.5rem;
+      line-height: 0.8;
+      padding-right: 0.15em;
+      padding-top: 0.1em;
+      font-family: 'Playfair Display', serif;
+    }
+
+    /* ===== HEADER ===== */
+    header {
+      position: sticky;
+      top: 0;
+      background: rgba(249, 248, 246, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      z-index: 50;
+      padding: 0.8rem 0;
+    }
+    .header-grid {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem 1rem;
+    }
+    .site-title {
+      font-size: 1.6rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    .site-title:hover { color: var(--teal); }
+    .header-search {
+      flex: 1 1 200px;
+      min-width: 140px;
+      background: var(--paper);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 0.4rem 1rem;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border 0.2s;
+    }
+    .header-search:focus { border-color: var(--teal); }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-block;
+      padding: 0.4rem 1rem;
+      border-radius: 100px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--border);
+    }
+    .btn-primary {
+      background: var(--teal);
+      color: white;
+      border-color: var(--teal);
+    }
+    .btn-primary:hover { background: #1f5354; }
+    .btn-outline { border-color: var(--border); }
+    .btn-outline:hover { background: var(--border); }
+    .btn-danger { color: #b91c1c; border-color: #fca5a5; }
+    .btn-danger:hover { background: #fee2e2; }
+
+    /* ===== CARDS ===== */
+    .post-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 2rem;
+      margin: 2rem 0;
+    }
+    .post-card {
+      background: var(--paper);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+    }
+    .post-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.04);
+    }
+    .post-card .tag {
+      font-size: 0.6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--teal);
+      display: inline-block;
+      margin-bottom: 0.5rem;
+    }
+    .post-card h3 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      font-family: 'Playfair Display', serif;
+      line-height: 1.2;
+      margin-bottom: 0.5rem;
+    }
+    .post-card .excerpt {
+      font-size: 0.9rem;
+      color: #555;
+      flex: 1;
+    }
+    .post-card .meta {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--accent);
+    }
+
+    /* ===== ARTICLE VIEW ===== */
+    .article-container {
+      max-width: 820px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+    }
+    .article-header {
+      margin-bottom: 2rem;
+    }
+    .article-header .tag { color: var(--teal); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .article-header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.8rem;
+      line-height: 1.1;
+      margin: 0.5rem 0;
+    }
+    .article-header .byline { color: var(--accent); font-size: 0.9rem; }
+    .article-body {
+      font-size: 1.1rem;
+      color: #2a2a2a;
+    }
+    .article-body p { margin-bottom: 1.5rem; }
+    .article-body .dropcap::first-letter { font-size: 4rem; }
+    .article-body blockquote {
+      border-left: 2px solid var(--teal);
+      padding-left: 1.5rem;
+      margin: 2rem 0;
+      font-style: italic;
+      font-family: 'Playfair Display', serif;
+      font-size: 1.2rem;
+    }
+
+    /* ===== COMMENTS ===== */
+    .comment-thread { margin-top: 3rem; border-top: 1px solid var(--border); padding-top: 2rem; }
+    .comment-form textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.8rem;
+      font-size: 0.95rem;
+      resize: vertical;
+      min-height: 80px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    .comment-form textarea:focus { border-color: var(--teal); }
+    .comment-item {
+      background: var(--paper);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-top: 1rem;
+    }
+    .comment-item .comment-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--accent);
+      margin-bottom: 0.3rem;
+    }
+    .comment-item .comment-body { font-size: 0.95rem; }
+    .comment-item .replies { margin-left: 2rem; border-left: 2px solid var(--border); padding-left: 1rem; }
+    .reply-btn {
+      background: none;
+      border: none;
+      color: var(--teal);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 0.3rem;
+    }
+    .reply-form { display: none; margin-top: 0.5rem; }
+    .reply-form input { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem; font-size: 0.85rem; }
+
+    /* ===== ADMIN PANEL ===== */
+    .admin-panel { max-width: 1000px; margin: 2rem auto; }
+    .admin-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+    @media (max-width: 768px) { .admin-grid { grid-template-columns: 1fr; } }
+    .admin-form label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); display: block; margin-bottom: 0.2rem; }
+    .admin-form input, .admin-form textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem;
+      font-size: 0.95rem;
+      background: var(--paper);
+      margin-bottom: 1rem;
+      outline: none;
+    }
+    .admin-form input:focus, .admin-form textarea:focus { border-color: var(--teal); }
+    .admin-form textarea { min-height: 200px; font-family: 'Inter', monospace; }
+    .live-preview {
+      background: var(--paper);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+
+    /* ===== FADE-UP ANIMATION ===== */
+    .fade-up {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+    .fade-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ===== SHIMMER LOADER ===== */
+    .shimmer {
+      background: linear-gradient(90deg, #f0eeeb 25%, #e6e3de 50%, #f0eeeb 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 6px;
+    }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+    /* ===== IMAGE COMPARISON (extra) ===== */
+    .compare-container {
+      position: relative;
+      width: 100%;
+      max-width: 800px;
+      margin: 2rem auto;
+      aspect-ratio: 16/9;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    }
+    .compare-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+    .img-before { z-index: 2; clip-path: polygon(0 0, 50% 0, 50% 100%, 0 100%); }
+    .compare-slider {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3;
+      opacity: 0; cursor: ew-resize;
+    }
+    .slider-line {
+      position: absolute; top: 0; left: 50%; width: 2px; height: 100%;
+      background: white; z-index: 2; pointer-events: none;
+      box-shadow: 0 0 12px rgba(0,0,0,0.2);
+    }
+    .slider-button {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 40px; height: 40px; background: white; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; color: var(--ink); z-index: 2; pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    /* ===== UTILITY ===== */
+    .text-center { text-align: center; }
+    .mt-4 { margin-top: 2rem; }
+    .mb-4 { margin-bottom: 2rem; }
+    .hidden { display: none !important; }
+    .flex-grow { flex: 1; }
   </style>
 </head>
 <body>
-  <div class="cursor"></div>
-  <div class="progress-bar" id="progressBar"></div>
 
-  <!-- Editorial Section -->
-  <main class="container fade-up">
-    <h1>The Architecture of Romantic Melancholy</h1>
-    <article class="editorial-content">
-      <p>There is a specific geometry to the way classical poets approached ruin...</p>
-    </article>
-  </main>
-
-  <!-- Editor Section -->
-  <div class="container editor-wrapper fade-up">
-    <div class="toolbar">
-      <button onclick="document.execCommand('bold')">B</button>
-      <button onclick="document.execCommand('italic')">I</button>
+  <!-- ========== HEADER ========== -->
+  <header>
+    <div class="container header-grid">
+      <span class="site-title serif" onclick="router.navigate('#home')">the marginalia.</span>
+      <input type="text" id="globalSearch" class="header-search" placeholder="Search essays, notes…" />
+      <div class="header-actions" id="headerActions"></div>
     </div>
-    <div id="premium-editor" contenteditable="true"></div>
-  </div>
+  </header>
 
-  <script src="app.js"></script>
+  <!-- ========== MAIN WORKSPACE ========== -->
+  <main id="appWorkspace" class="container fade-up"></main>
+
+  <!-- ========== FOOTER ========== -->
+  <footer style="border-top:1px solid var(--border); padding:1.5rem 0; margin-top:auto; text-align:center; font-size:0.75rem; color:var(--accent);">
+    &copy; 2026 the marginalia. — a literary architecture
+  </footer>
+
+  <!-- ================================================================= -->
+  <!-- ============================ JAVASCRIPT ========================= -->
+  <!-- ================================================================= -->
+  <script>
+    // ===== CONFIGURATION =====
+    // ⚠️ REPLACE WITH YOUR OWN SUPABASE CREDENTIALS
+    const SUPABASE_URL = "https://mrocdniivjeegtargcad.supabase.co/rest/v1/";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yb2NkbmlpdmplZWd0YXJnY2FkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MjQwMDgsImV4cCI6MjA5NzMwMDAwOH0.yB8_aNS6L699sVZsD6dV3B8hQqUS-Vna0i2bhghomwk";
+
+    // ===== INIT SUPABASE & MARKDOWN =====
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const md = window.markdownit({ html: false, linkify: true, breaks: true });
+    const purify = window.DOMPurify;
+
+    // ===== GLOBAL STATE =====
+    const state = {
+      posts: [],
+      searchQuery: '',
+      currentPage: 0,
+      pageSize: 6,
+      hasMore: true,
+      user: null,
+      profile: null,   // { display_name, role }
+    };
+
+    // ===== ROUTER =====
+    const router = {
+      currentHash: '#home',
+
+      navigate(hash) {
+        window.location.hash = hash;
+      },
+
+      async resolve() {
+        const hash = window.location.hash || '#home';
+        this.currentHash = hash;
+        const workspace = document.getElementById('appWorkspace');
+        workspace.innerHTML = '';  // clear
+
+        // Update header controls (auth buttons)
+        this.renderHeader();
+
+        if (hash === '#home') {
+          await this.renderHome(workspace);
+        } else if (hash.startsWith('#post/')) {
+          const id = hash.split('/')[1];
+          await this.renderPost(workspace, id);
+        } else if (hash === '#admin') {
+          await this.renderAdmin(workspace);
+        } else if (hash === '#auth') {
+          this.renderAuth(workspace);
+        } else {
+          window.location.hash = '#home';
+        }
+
+        // Trigger fade-up
+        document.querySelectorAll('.fade-up').forEach(el => el.classList.add('visible'));
+      },
+
+      renderHeader() {
+        const container = document.getElementById('headerActions');
+        if (!container) return;
+        const user = state.user;
+        const profile = state.profile;
+
+        if (user) {
+          const name = profile?.display_name || user.email?.split('@')[0] || 'Reader';
+          let html = `<span class="text-sm font-medium" style="color:var(--accent);">${name}</span>`;
+          if (profile?.role === 'admin' || profile?.role === 'owner') {
+            html += `<button class="btn btn-primary" onclick="router.navigate('#admin')">Editor Room</button>`;
+          }
+          html += `<button class="btn btn-outline" onclick="signOut()">Sign Out</button>`;
+          container.innerHTML = html;
+        } else {
+          container.innerHTML = `<button class="btn btn-primary" onclick="router.navigate('#auth')">Access Control</button>`;
+        }
+      },
+
+      // ===== HOME PAGE =====
+      async renderHome(target) {
+        target.innerHTML = `
+          <div style="padding:1rem 0 0;">
+            <h2 class="serif" style="font-size:2.2rem; font-weight:600; letter-spacing:-0.02em;">Curated Textual Criticism</h2>
+            <p style="color:var(--accent); font-size:0.9rem;">Essays, fragments, and literary notes</p>
+          </div>
+          <div id="postsGrid" class="post-grid"></div>
+          <div id="paginationContainer" class="text-center mt-4"></div>
+        `;
+
+        // Load first page
+        await this.loadPosts(0, true);
+        this.renderGrid();
+
+        // Search
+        const searchInput = document.getElementById('globalSearch');
+        if (searchInput) {
+          searchInput.value = state.searchQuery;
+          searchInput.addEventListener('input', (e) => {
+            state.searchQuery = e.target.value.trim().toLowerCase();
+            state.currentPage = 0;
+            state.posts = [];
+            this.loadPosts(0, true).then(() => this.renderGrid());
+          });
+        }
+      },
+
+      async loadPosts(page, reset = false) {
+        const from = page * state.pageSize;
+        const to = from + state.pageSize - 1;
+        let query = supabase.from('posts').select('*').order('created_at', { ascending: false }).range(from, to);
+        const { data, error } = await query;
+        if (error) { console.error(error); return; }
+        if (reset) state.posts = data || [];
+        else state.posts = [...state.posts, ...(data || [])];
+        state.hasMore = data && data.length === state.pageSize;
+        state.currentPage = page;
+      },
+
+      renderGrid() {
+        const grid = document.getElementById('postsGrid');
+        const pag = document.getElementById('paginationContainer');
+        if (!grid) return;
+
+        const query = state.searchQuery.toLowerCase();
+        let filtered = state.posts;
+        if (query) {
+          filtered = filtered.filter(p =>
+            p.title.toLowerCase().includes(query) ||
+            p.excerpt?.toLowerCase().includes(query) ||
+            p.tag?.toLowerCase().includes(query)
+          );
+        }
+
+        if (filtered.length === 0) {
+          grid.innerHTML = `<p style="grid-column:1/-1; color:var(--accent);">No essays found.</p>`;
+          pag.innerHTML = '';
+          return;
+        }
+
+        grid.innerHTML = filtered.map(p => `
+          <div class="post-card" onclick="router.navigate('#post/${p.id}')">
+            <span class="tag">${escapeHtml(p.tag || 'General')}</span>
+            <h3>${escapeHtml(p.title)}</h3>
+            <p class="excerpt">${escapeHtml(p.excerpt || '')}</p>
+            <div class="meta">
+              <span>By ${escapeHtml(p.author || 'Anonymous')}</span>
+              <span>${p.created_at ? new Date(p.created_at).toLocaleDateString() : ''}</span>
+            </div>
+            ${state.profile?.role === 'admin' ? `
+              <div style="margin-top:0.5rem; display:flex; gap:0.5rem; border-top:1px solid var(--border); padding-top:0.5rem;">
+                <button class="btn btn-outline" onclick="event.stopPropagation(); router.navigate('#admin?edit=${p.id}')" style="font-size:0.6rem;">Edit</button>
+                <button class="btn btn-danger" onclick="event.stopPropagation(); deletePost(${p.id})" style="font-size:0.6rem;">Delete</button>
+              </div>
+            ` : ''}
+          </div>
+        `).join('');
+
+        // Pagination
+        if (!query && state.hasMore) {
+          pag.innerHTML = `<button class="btn btn-outline" onclick="loadMore()">Load More &rarr;</button>`;
+        } else {
+          pag.innerHTML = '';
+        }
+      },
+
+      // ===== POST VIEW =====
+      async renderPost(target, id) {
+        // Try from cache first
+        let post = state.posts.find(p => p.id == id);
+        if (!post) {
+          const { data, error } = await supabase.from('posts').select('*').eq('id', id).single();
+          if (error || !data) {
+            target.innerHTML = `<p style="color:red;">Article not found.</p>`;
+            return;
+          }
+          post = data;
+        }
+
+        // Update SEO
+        updateSEO(post.title, post.excerpt || post.title, '');
+
+        target.innerHTML = `
+          <div class="article-container">
+            <div class="article-header">
+              <span class="tag">${escapeHtml(post.tag || 'General')}</span>
+              <h1>${escapeHtml(post.title)}</h1>
+              <div class="byline">By ${escapeHtml(post.author || 'Anonymous')} · ${new Date(post.created_at).toLocaleDateString()}</div>
+            </div>
+            <div class="article-body dropcap" id="articleBody">${purify.sanitize(md.render(post.content))}</div>
+
+            <!-- Image Comparison Demo (optional) -->
+            <div class="compare-container">
+              <img src="https://picsum.photos/id/1015/800/450" class="compare-img img-after" alt="After" />
+              <img src="https://picsum.photos/id/1016/800/450" class="compare-img img-before" id="beforeImage" alt="Before" />
+              <input type="range" min="0" max="100" value="50" class="compare-slider" id="compareSlider" />
+              <div class="slider-line" id="sliderLine"></div>
+              <div class="slider-button">↔</div>
+            </div>
+
+            <!-- COMMENTS -->
+            <section class="comment-thread" id="commentSection">
+              <h3 style="font-family:'Playfair Display',serif; font-size:1.6rem;">Discussion</h3>
+              <div id="commentCompose"></div>
+              <div id="commentsList"></div>
+            </section>
+          </div>
+        `;
+
+        // Slider logic
+        const slider = document.getElementById('compareSlider');
+        const beforeImg = document.getElementById('beforeImage');
+        const line = document.getElementById('sliderLine');
+        const btn = document.getElementById('sliderButton');
+        if (slider && beforeImg) {
+          slider.addEventListener('input', (e) => {
+            const val = e.target.value;
+            beforeImg.style.clipPath = `polygon(0 0, ${val}% 0, ${val}% 100%, 0 100%)`;
+            line.style.left = val + '%';
+            btn.style.left = val + '%';
+          });
+        }
+
+        // Comments UI
+        const compose = document.getElementById('commentCompose');
+        if (state.user) {
+          compose.innerHTML = `
+            <div class="comment-form">
+              <textarea id="commentText" placeholder="Share your insight…"></textarea>
+              <button class="btn btn-primary" onclick="submitComment(${post.id})" style="margin-top:0.3rem;">Post</button>
+            </div>
+          `;
+        } else {
+          compose.innerHTML = `<p style="color:var(--accent); font-size:0.9rem;">Please <a href="#" onclick="router.navigate('#auth')" style="color:var(--teal);">sign in</a> to comment.</p>`;
+        }
+
+        this.loadComments(post.id);
+      },
+
+      async loadComments(postId) {
+        const container = document.getElementById('commentsList');
+        if (!container) return;
+        const { data, error } = await supabase
+          .from('comments')
+          .select('*')
+          .eq('post_id', postId)
+          .order('created_at', { ascending: true });
+        if (error) { console.error(error); container.innerHTML = '<p>Error loading comments.</p>'; return; }
+        if (!data || data.length === 0) {
+          container.innerHTML = '<p style="color:var(--accent); font-size:0.9rem;">No comments yet.</p>';
+          return;
+        }
+
+        // Build threaded tree (parent_id = null for roots)
+        const roots = data.filter(c => !c.parent_id);
+        const replies = data.filter(c => c.parent_id);
+        const renderComment = (comment, depth = 0) => {
+          const children = replies.filter(r => r.parent_id === comment.id);
+          return `
+            <div class="comment-item" style="margin-left:${depth * 1.5}rem;">
+              <div class="comment-meta">
+                <strong>${escapeHtml(comment.author_name || 'Anonymous')}</strong>
+                <span>${new Date(comment.created_at).toLocaleDateString()}</span>
+              </div>
+              <div class="comment-body">${escapeHtml(comment.body)}</div>
+              ${state.user ? `<button class="reply-btn" onclick="toggleReply(${comment.id})">↳ Reply</button>` : ''}
+              <div class="reply-form" id="replyForm_${comment.id}">
+                <input type="text" id="replyInput_${comment.id}" placeholder="Write a reply…" />
+                <button class="btn btn-primary" style="font-size:0.7rem; padding:0.2rem 0.8rem;" onclick="submitReply(${comment.post_id}, ${comment.id})">Post</button>
+              </div>
+              <div class="replies">${children.map(c => renderComment(c, depth + 1)).join('')}</div>
+            </div>
+          `;
+        };
+        container.innerHTML = roots.map(r => renderComment(r)).join('');
+      },
+
+      // ===== ADMIN PANEL =====
+      async renderAdmin(target) {
+        const params = new URLSearchParams(window.location.hash.split('?')[1] || '');
+        const editId = params.get('edit');
+
+        let post = { title: '', tag: '', author: '', excerpt: '', content: '' };
+        if (editId) {
+          const found = state.posts.find(p => p.id == editId);
+          if (found) post = found;
+          else {
+            const { data } = await supabase.from('posts').select('*').eq('id', editId).single();
+            if (data) post = data;
+          }
+        }
+
+        target.innerHTML = `
+          <div class="admin-panel">
+            <h2 class="serif" style="font-size:2rem; margin-bottom:1rem;">${editId ? 'Edit Essay' : 'New Essay'}</h2>
+            <div class="admin-grid">
+              <div>
+                <form id="adminForm" class="admin-form">
+                  <label>Title</label>
+                  <input type="text" id="formTitle" value="${escapeHtml(post.title)}" required />
+                  <label>Tag / Category</label>
+                  <input type="text" id="formTag" value="${escapeHtml(post.tag)}" />
+                  <label>Author</label>
+                  <input type="text" id="formAuthor" value="${escapeHtml(post.author)}" />
+                  <label>Excerpt (summary)</label>
+                  <input type="text" id="formExcerpt" value="${escapeHtml(post.excerpt)}" />
+                  <label>Content (Markdown)</label>
+                  <textarea id="formContent">${escapeHtml(post.content)}</textarea>
+                  <button type="submit" class="btn btn-primary" style="width:100%;">${editId ? 'Update' : 'Publish'}</button>
+                </form>
+              </div>
+              <div>
+                <div style="font-weight:600; margin-bottom:0.5rem; color:var(--accent);">Live Preview</div>
+                <div class="live-preview" id="livePreview"></div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Live preview
+        const contentField = document.getElementById('formContent');
+        const preview = document.getElementById('livePreview');
+        const updatePreview = () => {
+          preview.innerHTML = purify.sanitize(md.render(contentField.value || '*Empty content*'));
+        };
+        contentField.addEventListener('input', updatePreview);
+        updatePreview();
+
+        // Submit
+        document.getElementById('adminForm').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const payload = {
+            title: document.getElementById('formTitle').value.trim(),
+            tag: document.getElementById('formTag').value.trim(),
+            author: document.getElementById('formAuthor').value.trim(),
+            excerpt: document.getElementById('formExcerpt').value.trim(),
+            content: contentField.value.trim(),
+            slug: document.getElementById('formTitle').value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+          };
+          if (!payload.title || !payload.content) { alert('Title and content required.'); return; }
+          try {
+            if (editId) {
+              await supabase.from('posts').update(payload).eq('id', editId);
+            } else {
+              await supabase.from('posts').insert([payload]);
+            }
+            alert('Saved successfully!');
+            router.navigate('#home');
+          } catch (err) { alert('Error: ' + err.message); }
+        });
+      },
+
+      // ===== AUTH VIEW =====
+      renderAuth(target) {
+        target.innerHTML = `
+          <div style="max-width:400px; margin:2rem auto; background:var(--paper); border-radius:20px; padding:2rem; border:1px solid var(--border);">
+            <h3 class="serif" style="font-size:1.6rem; text-align:center;">Access Control</h3>
+            <form id="authForm">
+              <label>Display Name (for registration)</label>
+              <input type="text" id="authName" placeholder="Your name" />
+              <label>Email</label>
+              <input type="email" id="authEmail" required />
+              <label>Password</label>
+              <input type="password" id="authPassword" required minlength="6" />
+              <div style="display:flex; gap:1rem;">
+                <button type="submit" id="loginBtn" class="btn btn-primary" style="flex:1;">Log In</button>
+                <button type="submit" id="registerBtn" class="btn btn-outline" style="flex:1;">Register</button>
+              </div>
+            </form>
+            <p style="margin-top:1rem; text-align:center; font-size:0.8rem; color:var(--accent);">
+              Demo: sign up with any email (verify via link) or use existing.
+            </p>
+          </div>
+        `;
+
+        document.getElementById('loginBtn').addEventListener('click', async (e) => {
+          e.preventDefault();
+          const email = document.getElementById('authEmail').value;
+          const pass = document.getElementById('authPassword').value;
+          const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+          if (error) { alert(error.message); } else { router.navigate('#home'); }
+        });
+
+        document.getElementById('registerBtn').addEventListener('click', async (e) => {
+          e.preventDefault();
+          const name = document.getElementById('authName').value.trim();
+          const email = document.getElementById('authEmail').value;
+          const pass = document.getElementById('authPassword').value;
+          if (!name) { alert('Please provide a display name.'); return; }
+          const { error } = await supabase.auth.signUp({
+            email,
+            password: pass,
+            options: { data: { display_name: name } }
+          });
+          if (error) { alert(error.message); } else {
+            alert('Check your email to confirm your account.');
+            router.navigate('#home');
+          }
+        });
+      }
+    };
+
+    // ===== AUTH HELPERS =====
+    async function signOut() {
+      await supabase.auth.signOut();
+      state.user = null;
+      state.profile = null;
+      router.navigate('#home');
+    }
+
+    async function loadUserProfile(userId) {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      if (error) {
+        // If no profile exists, create one with default 'reader'
+        const { error: insertError } = await supabase
+          .from('user_profiles')
+          .insert([{ id: userId, display_name: userId.slice(0,8), role: 'reader' }]);
+        if (!insertError) {
+          const { data: newData } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+          return newData;
+        }
+        return null;
+      }
+      return data;
+    }
+
+    // ===== COMMENT HELPERS =====
+    window.submitComment = async function(postId) {
+      const text = document.getElementById('commentText');
+      if (!text || !text.value.trim()) return;
+      const body = text.value.trim();
+      const { error } = await supabase.from('comments').insert([{
+        post_id: postId,
+        user_id: state.user?.id,
+        author_name: state.profile?.display_name || state.user?.email?.split('@')[0] || 'Anonymous',
+        body: body
+      }]);
+      if (error) { alert(error.message); return; }
+      text.value = '';
+      router.loadComments(postId);
+    };
+
+    window.toggleReply = function(commentId) {
+      const form = document.getElementById('replyForm_' + commentId);
+      if (form) form.style.display = form.style.display === 'block' ? 'none' : 'block';
+    };
+
+    window.submitReply = async function(postId, parentId) {
+      const input = document.getElementById('replyInput_' + parentId);
+      if (!input || !input.value.trim()) return;
+      const body = input.value.trim();
+      const { error } = await supabase.from('comments').insert([{
+        post_id: postId,
+        user_id: state.user?.id,
+        author_name: state.profile?.display_name || state.user?.email?.split('@')[0] || 'Anonymous',
+        body: body,
+        parent_id: parentId
+      }]);
+      if (error) { alert(error.message); return; }
+      input.value = '';
+      router.loadComments(postId);
+    };
+
+    // ===== DELETE POST (admin) =====
+    window.deletePost = async function(id) {
+      if (!confirm('Delete this essay permanently?')) return;
+      const { error } = await supabase.from('posts').delete().eq('id', id);
+      if (error) { alert(error.message); return; }
+      state.posts = state.posts.filter(p => p.id !== id);
+      router.renderGrid();
+    };
+
+    // ===== LOAD MORE =====
+    window.loadMore = async function() {
+      await router.loadPosts(state.currentPage + 1, false);
+      router.renderGrid();
+    };
+
+    // ===== SEO UPDATE =====
+    function updateSEO(title, description, image) {
+      document.getElementById('seo-title').innerText = title + ' | the marginalia.';
+      document.getElementById('seo-desc').setAttribute('content', description);
+      document.getElementById('og-title').setAttribute('content', title);
+      document.getElementById('og-desc').setAttribute('content', description);
+      if (image) document.getElementById('og-image').setAttribute('content', image);
+
+      // JSON-LD
+      const script = document.createElement('script');
+      script.type = 'application/ld+json';
+      script.text = JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": title,
+        "description": description,
+        "author": { "@type": "Person", "name": "Editor" }
+      });
+      document.head.appendChild(script);
+    }
+
+    // ===== UTILITY =====
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    }
+
+    // ===== INIT =====
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Auth state
+      const { data: { session } } = await supabase.auth.getSession();
+      state.user = session?.user || null;
+      if (state.user) {
+        const profile = await loadUserProfile(state.user.id);
+        state.profile = profile;
+      }
+
+      // Listen for auth changes
+      supabase.auth.onAuthStateChange(async (event, session) => {
+        state.user = session?.user || null;
+        if (state.user) {
+          const profile = await loadUserProfile(state.user.id);
+          state.profile = profile;
+        } else {
+          state.profile = null;
+        }
+        router.resolve();
+      });
+
+      // Listen for hash changes
+      window.addEventListener('hashchange', () => router.resolve());
+
+      // Initial route
+      router.resolve();
+    });
+  </script>
 </body>
 </html>
