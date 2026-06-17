@@ -2,8 +2,8 @@
 const SUPABASE_URL = "https://zkpsgotkjlwroklhdmnc.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InprcHNnb3Rramx3cm9rbGhkbW5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg3M2I0bXyz3Rramx3cm9rbGhkbW5jRjcwO2JBjqRo7jPFq9bue02DKogoMDYsABnTqjAuWbM";
 
-// CRITICAL FIX: Use a distinct name to prevent client shadowing conflicts
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// CRITICAL FIX: Explicitly use the global library instantiation safely
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const md = window.markdownit({ html: false, linkify: true, breaks: true });
 
 let GlobalState = {
@@ -39,7 +39,6 @@ const UI = {
                 </div>
             </div>
         `;
-        // Setup secure event listeners instead of XSS-risk inline onclick attributes
         document.getElementById('loginSubmitBtn')?.addEventListener('click', handleLogin);
         document.getElementById('registerSubmitBtn')?.addEventListener('click', handleRegister);
     }
@@ -69,7 +68,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 async function router() {
     const hash = window.location.hash || '#home';
     const workspace = document.getElementById('appWorkspace');
-    if (!workspace) return; // Silent safety exit if target structural node is missing
+    if (!workspace) return;
     
     workspace.innerHTML = '';
     renderHeader();
@@ -95,7 +94,6 @@ async function router() {
             window.location.hash = '#home';
         }
     } catch (err) {
-        // Robust UI error boundaries preventing continuous white screen failure states
         workspace.innerHTML = `
             <div class="text-center py-12 max-w-md mx-auto space-y-3">
                 <p class="text-red-700 font-medium">Database Core Connection Failure</p>
@@ -153,12 +151,10 @@ function renderHeader() {
     document.body.insertBefore(header, document.body.firstChild);
 }
 
-// Secure Search implementation with added 300ms Debounce and explicit Safe handling
 function handleSearchInput(value) {
     clearTimeout(searchDebounceTimeout);
     searchDebounceTimeout = setTimeout(() => {
         GlobalState.searchQuery = value || "";
-        // SAFE CONSTRAINTS: Reset active pagination indexing tracking parameters on search parameters shift
         GlobalState.currentPage = 0;
         const workspace = document.getElementById('appWorkspace');
         if (window.location.hash === '#home' && workspace) {
@@ -186,7 +182,6 @@ function renderHome(target) {
     const grid = document.getElementById('postsGrid');
     if (!grid) return;
     
-    // Unsafe null safety wrapper fallback structure ensuring failure immunity
     const currentQuery = (GlobalState.searchQuery || "").toLowerCase();
     const filtered = (GlobalState.posts || []).filter(p => {
         if (!p) return false;
@@ -305,7 +300,6 @@ function renderFooter() {
     document.body.appendChild(footer);
 }
 
-// Handler Functions With Authentication Error Management Pipelines
 async function handleLogin() {
     const email = document.getElementById('authEmail')?.value;
     const password = document.getElementById('authPassword')?.value;
