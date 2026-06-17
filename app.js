@@ -33,3 +33,49 @@ function updateSEO(title, summary) {
   script.text = JSON.stringify({ "@context": "https://schema.org", "@type": "Article", "headline": title });
   document.head.appendChild(script);
 }
+// Example of how you use it after pulling from Supabase
+const myEssay = data[0]; // The data returned from your database
+
+// Update the visual page
+document.getElementById('essay-title').innerText = myEssay.title;
+document.getElementById('essay-content').innerHTML = myEssay.body;
+
+// FIRE THE SEO INJECTOR
+updateSEO(myEssay.title, myEssay.summary, myEssay.cover_image);
+/**
+ * SEO Meta Injector
+ * Call this function immediately after fetching your essay from Supabase.
+ */
+function updateSEO(essayTitle, essaySummary, essayImage) {
+  // 1. Update the Browser Tab & Search Engine Title
+  document.getElementById('seo-title').innerText = `${essayTitle} | the marginalia.`;
+  document.getElementById('og-title').setAttribute('content', essayTitle);
+
+  // 2. Update the Search Engine Description (Keep under 160 characters)
+  document.getElementById('seo-desc').setAttribute('content', essaySummary);
+  document.getElementById('og-desc').setAttribute('content', essaySummary);
+
+  // 3. Update the Social Media Preview Image
+  if (essayImage) {
+    document.getElementById('og-image').setAttribute('content', essayImage);
+  }
+
+  // 4. The VIP Pass: JSON-LD Structured Data
+  // This tells Google exactly what this content is so it can feature it in Rich Snippets
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": essayTitle,
+    "description": essaySummary,
+    "author": {
+      "@type": "Person",
+      "name": "Editor"
+    }
+  };
+
+  // Inject the schema into the page invisibly
+  const scriptTag = document.createElement('script');
+  scriptTag.type = "application/ld+json";
+  scriptTag.text = JSON.stringify(schema);
+  document.head.appendChild(scriptTag);
+}
