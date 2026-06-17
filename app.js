@@ -1,4 +1,4 @@
-const SUPABASE_URL = "https://zkpsgotkjlwroklhdmnc.supabase.co/rest/v1/"; 
+const SUPABASE_URL = "https://zkpsgotkjlwroklhdmnc.supabase.co"; 
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InprcHNnb3Rramx3cm9rbGhkbW5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MTk1NDAsImV4cCI6MjA5NzI5NTU0MH0.7dO2BJbqgRo7jPFq9bueO2ZDKogoMDYsABnTqjAuWbM"; 
 
 const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
