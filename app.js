@@ -295,6 +295,255 @@ const UI = {
         const { error } = await supabase.auth.signInWithPassword({ email: document.getElementById('authEmail').value, password: document.getElementById('authPassword').value });
         if (error) alert(error.message); else window.location.hash = '#home';
     },
-    async handleRegister() {
+   async handleRegister() {
         const name = document.getElementById('authName').value; if (!name) return alert("Please clarify a name.");
         const { error } = await supabase.auth.signUp({ email: document.getElementById('authEmail').value, password: document.getElementById('authPassword').value, options: { data: { display_name: name } } });
+        if (error) alert(error.message); else alert("Registration check sent! Please check your email inbox to verify your account.");
+    }
+};
+
+window.addEventListener('DOMContentLoaded', async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    GlobalState.userSession = session;
+    if (session) {
+        GlobalState.displayName = session.user.user_metadata.display_name || 'Admin';
+        const { data } = await supabase.from('user_profiles').select('role').eq('id', session.user.id).single();
+        if (data) GlobalState.userRole = data.role;
+    }
+    
+    window.addEventListener('hashchange', router);
+    router();
+});
+
+async function router() {
+    const hash = window.location.hash || '#home';
+    const workspace = document.getElementById('appWorkspace');
+    if (!workspace) return;
+    
+    // Clear view state
+    workspace.innerHTML = '';
+    renderHeader();
+    
+    if (hash === '#home') {
+        const { data, error } = await supabase.from('posts').select('*').order('created_at', { ascending: false });
+        if (!error) GlobalState.posts = data || [];
+        renderHome(workspace);
+    } else if (hash.startsWith('#post/')) {
+        const id = hash.split('/')[1];
+        const { data } = await supabase.from('posts').select('*').eq('id', id).single();
+        if (data) renderPostView(workspace, data);
+    } else if (hash === '#admin' && (GlobalState.userRole === 'admin' || GlobalState.userRole === 'owner')) {
+        renderAdminRoom(workspace);
+    } else {
+        window.location.hash = '#home';
+    }
+    renderFooter();
+}
+
+function renderHeader() {
+    let existingNode = document.querySelector('header');
+    if (existingNode) existingNode.remove();
+    
+    const header = document.createElement('header');
+    header.className = "sticky top-0 bg-[#F9F6F0]/90 backdrop-blur-md border-b border-stone-200 z-40 px-6 py-4";
+    header.innerHTML = `
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <h1 class="serif-title text-2xl font-bold tracking-tight text-stone-800 cursor-pointer" onclick="window.location.hash='#home'">the marginalia.</h1>
+            <div class="flex items-center gap-4">
+                ${GlobalState.userSession ? `
+                    <span class="text-xs text-stone-600 font-medium">Hello, ${GlobalState.displayName}</span>
+                    ${(GlobalState.userRole === 'admin' || GlobalState.userRole === 'owner') ? `<button onclick="window.location.hash='#admin'" class="bg-teal-700 text-white text-xs px-3 py-1.5 rounded-md font-bold uppercase tracking-wider hover:bg-teal-800 transition">Editor Room</button>` : ''}
+                    <button onclick="handleLogout()" class="border border-stone-300 text-stone-700 text-xs px-3 py-1.5 rounded-md font-bold uppercase tracking-wider hover:bg-stone-50 transition">Log Out</button>
+                ` : `
+                    <button onclick="UI.openAuth()" class="bg-teal-700 text-white text-xs px-4 py-1.5 rounded-md font-bold uppercase tracking-wider hover:bg-teal-800 transition">Access Control</button>
+                `}
+            </div>
+        </div>
+    `;
+    document.body.insertBefore(header, document.body.firstChild);
+}
+
+function renderFooter() {
+    let existingNode = document.querySelector('footer');
+    if (existingNode) existingNode.remove();
+    
+    const footer = document.createElement('footer');
+    footer.className = "border-t border-stone-200 bg-stone-100 py-6 text-center text-xs text-stone-500 mt-auto";
+    footer.innerHTML = `&copy; 2026 The Marginalia Hub. Structured Architectural Engine.`;
+    document.body.appendChild(footer);
+}
+
+function renderHome(target) {
+    let html = `
+        <div class="space-y-8">
+            <div class="border-b border-stone-200 pb-4">
+                <input type="text" id="blogSearch" placeholder="Search essays, notes, fragments..." value="${GlobalState.searchQuery}" oninput="handleSearch(this.value)" class="w-full bg-transparent text-xl serif-title focus:outline-none placeholder-stone-400">
+            </div>
+            <div class="grid gap-8 md:grid-cols-2">
+    `;
+    
+    const filtered = GlobalState.posts.filter(p => 
+        p.title.toLowerCase().includes(GlobalState.searchQuery.toLowerCase()) || 
+        p.content.toLowerCase().includes(GlobalState.searchQuery.toLowerCase())
+    );
+    
+    if (filtered.length === 0) {
+        html += `<p class="text-stone-500 text-sm italic col-span-2">No articles matched your search terms.</p>`;
+    } else {
+        filtered.forEach(post => {
+            html += `
+                <article class="space-y-3 cursor-pointer group" onclick="window.location.hash='#post/${post.id}'">
+                    <div class="flex gap-2 items-center text-xs tracking-widest uppercase font-bold text-teal-700">
+                        <span>${post.tag || 'General'}</span>
+                        <span class="text-stone-300">&bull;</span>
+                        <span class="text-stone-500">${new Date(post.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <h2 class="text-2xl font-bold text-stone-800 group-hover:text-teal-700 transition serif-title">${post.title}</h2>
+                    <p class="text-stone-600 text-sm leading-relaxed">${post.summary || ''}</p>
+                    <div class="text-xs text-stone-400 italic">By ${post.author || 'Anonymous'}</div>
+                </article>
+            `;
+        });
+    }
+    
+    html += `</div></div>`;
+    target.innerHTML = html;
+}
+
+function renderPostView(target, post) {
+    target.innerHTML = `
+        <div class="max-w-3xl mx-auto space-y-6 py-6">
+            <button onclick="window.location.hash='#home'" class="text-xs font-bold uppercase tracking-wider text-stone-500 hover:text-stone-800 transition">&larr; Return to Index</button>
+            <div class="space-y-2">
+                <div class="text-xs tracking-widest uppercase font-bold text-teal-700">${post.tag || 'General'} &bull; ${new Date(post.created_at).toLocaleDateString()}</div>
+                <h1 class="text-4xl font-bold text-stone-900 serif-title leading-tight">${post.title}</h1>
+                <div class="text-sm text-stone-500 italic">Authored by ${post.author || 'Anonymous'}</div>
+            </div>
+            <hr class="border-stone-200">
+            <div class="prose prose-stone max-w-none text-stone-800 leading-relaxed space-y-4">
+                ${md.render(post.content)}
+            </div>
+            
+            <hr class="border-stone-200 pt-4">
+            <div class="space-y-4" id="commentsSection">
+                <h3 class="text-lg font-bold text-stone-800 serif-title">Discussion & Notes</h3>
+                ${GlobalState.userSession ? `
+                    <div class="space-y-2">
+                        <textarea id="newComment" placeholder="Leave a notation or response..." class="w-full p-3 border border-stone-200 rounded-md text-sm focus:outline-none focus:border-stone-400 h-20 bg-stone-50"></textarea>
+                        <button onclick="submitComment('${post.id}')" class="bg-stone-800 text-white text-xs px-4 py-2 rounded font-bold uppercase tracking-wider hover:bg-stone-900 transition">Post Comment</button>
+                    </div>
+                ` : `<p class="text-xs text-stone-500 italic">Please use <span class="text-teal-700 font-bold cursor-pointer" onclick="UI.openAuth()">Access Control</span> to sign in to leave comments.</p>`}
+                <div class="space-y-4 mt-4" id="commentsList">Loading notes...</div>
+            </div>
+        </div>
+    `;
+    loadComments(post.id);
+}
+
+function renderAdminRoom(target) {
+    target.innerHTML = `
+        <div class="max-w-3xl mx-auto space-y-6">
+            <h2 class="text-3xl font-bold text-stone-900 serif-title">The Editor Room</h2>
+            <div class="space-y-4 bg-white p-6 border border-stone-200 rounded-xl shadow-sm">
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1">Essay Title</label>
+                        <input type="text" id="postTitle" class="w-full border border-stone-200 rounded p-2 text-sm focus:outline-none focus:border-stone-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1">Tag / Category</label>
+                        <input type="text" id="postTag" placeholder="e.g. Poetry, Criticism, Notes" class="w-full border border-stone-200 rounded p-2 text-sm focus:outline-none focus:border-stone-400">
+                    </div>
+                </div>
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1">Author Name</label>
+                        <input type="text" id="postAuthor" value="${GlobalState.displayName}" class="w-full border border-stone-200 rounded p-2 text-sm focus:outline-none focus:border-stone-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1">Brief Summary Excerpt</label>
+                        <input type="text" id="postSummary" class="w-full border border-stone-200 rounded p-2 text-sm focus:outline-none focus:border-stone-400">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1">Markdown Body Content</label>
+                    <textarea id="postContent" class="w-full border border-stone-200 rounded p-3 text-sm focus:outline-none focus:border-stone-400 h-64 font-mono"></textarea>
+                </div>
+                <button onclick="compilePost()" class="w-full bg-teal-700 text-white font-bold text-xs uppercase tracking-widest py-3 rounded-lg hover:bg-teal-800 transition">Compile to Cloud Engine</button>
+            </div>
+        </div>
+    `;
+}
+
+function handleSearch(val) {
+    GlobalState.searchQuery = val;
+    const workspace = document.getElementById('appWorkspace');
+    if (window.location.hash === '#home' && workspace) {
+        renderHome(workspace);
+    }
+}
+
+async function handleLogout() {
+    await supabase.auth.signOut();
+    window.location.reload();
+}
+
+async function compilePost() {
+    const title = document.getElementById('postTitle').value;
+    const tag = document.getElementById('postTag').value;
+    const author = document.getElementById('postAuthor').value;
+    const summary = document.getElementById('postSummary').value;
+    const content = document.getElementById('postContent').value;
+    
+    if(!title || !content) return alert("Title and Content fields are required.");
+    
+    const { error } = await supabase.from('posts').insert([{ title, tag, author, summary, content }]);
+    if (error) alert(error.message);
+    else {
+        alert("Essay compiled successfully!");
+        window.location.hash = '#home';
+    }
+}
+
+async function loadComments(postId) {
+    const listNode = document.getElementById('commentsList');
+    if (!listNode) return;
+    const { data, error } = await supabase.from('comments').select('*').eq('post_id', postId).order('created_at', { ascending: true });
+    if (error) {
+        listNode.innerHTML = `<p class="text-xs text-red-500">Failed to render responses.</p>`;
+        return;
+    }
+    if (data.length === 0) {
+        listNode.innerHTML = `<p class="text-stone-400 text-xs italic">No entries yet. Leave the first notation below.</p>`;
+        return;
+    }
+    let html = '';
+    data.forEach(c => {
+        html += `
+            <div class="bg-stone-50 border border-stone-200 p-3 rounded-md text-sm space-y-1">
+                <div class="flex justify-between items-center text-xs text-stone-400">
+                    <span class="font-bold text-stone-600">${c.author_name}</span>
+                    <span>${new Date(c.created_at).toLocaleDateString()}</span>
+                </div>
+                <p class="text-stone-700">${c.content}</p>
+            </div>
+        `;
+    });
+    listNode.innerHTML = html;
+}
+
+async function submitComment(postId) {
+    const textarea = document.getElementById('newComment');
+    if (!textarea || !textarea.value.trim()) return;
+    const content = textarea.value.trim();
+    
+    const { error } = await supabase.from('comments').insert([
+        { post_id: postId, content, author_name: GlobalState.displayName, user_id: GlobalState.userSession.user.id }
+    ]);
+    
+    if (error) alert(error.message);
+    else {
+        textarea.value = '';
+        loadComments(postId);
+    }
+}
